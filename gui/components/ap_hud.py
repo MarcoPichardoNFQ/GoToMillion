@@ -173,6 +173,110 @@ class DecisionAuditWidget(QFrame):
                 lbl_v.setStyleSheet("color: #00E676; font-size: 12px; font-weight: bold;" if val >= 25.0 else "color: #FFFFFF; font-size: 12px;")
 
 
+class DetailedShoeStatsWidget(QFrame):
+    """Muestra el conteo exacto de cartas repartidas y restantes, más indicadores CD avanzados."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: #14171F;
+                border: 1px solid #2B2F3A;
+                border-radius: 6px;
+            }
+            QLabel { font-family: Consolas; border: none; }
+        """)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(8)
+
+        lbl_title = QLabel("COMPOSICIÓN EXACTA (CD)")
+        lbl_title.setStyleSheet("color: #00E5FF; font-size: 14px; font-weight: bold;")
+        layout.addWidget(lbl_title)
+
+        # Indicadores avanzados
+        self.lbl_p10 = QLabel("P(10): --%")
+        self.lbl_ace_surplus = QLabel("Ases: --")
+        
+        h_indicators = QHBoxLayout()
+        self.lbl_p10.setStyleSheet("color: #CFD8DC; font-size: 12px; font-weight: bold;")
+        self.lbl_ace_surplus.setStyleSheet("color: #CFD8DC; font-size: 12px; font-weight: bold;")
+        h_indicators.addWidget(self.lbl_p10)
+        h_indicators.addWidget(self.lbl_ace_surplus)
+        layout.addLayout(h_indicators)
+
+        # Separador
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setStyleSheet("background-color: #2B2F3A; max-height: 1px;")
+        layout.addWidget(line)
+
+        # Tabla de cartas
+        grid = QGridLayout()
+        grid.setSpacing(4)
+        
+        # Headers
+        h1 = QLabel("Carta")
+        h2 = QLabel("Salieron")
+        h3 = QLabel("Quedan")
+        for h in (h1, h2, h3):
+            h.setStyleSheet("color: #78909C; font-size: 11px; font-weight: bold;")
+        grid.addWidget(h1, 0, 0, alignment=Qt.AlignmentFlag.AlignCenter)
+        grid.addWidget(h2, 0, 1, alignment=Qt.AlignmentFlag.AlignCenter)
+        grid.addWidget(h3, 0, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        self.card_labels = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10-K"]
+        self.dealt_labels: List[QLabel] = []
+        self.rem_labels: List[QLabel] = []
+
+        for row, card_name in enumerate(self.card_labels, start=1):
+            l_name = QLabel(card_name)
+            l_name.setStyleSheet("color: #FFFFFF; font-size: 12px; font-weight: bold;")
+            l_dealt = QLabel("0")
+            l_dealt.setStyleSheet("color: #FF5252; font-size: 12px;")
+            l_rem = QLabel("0")
+            l_rem.setStyleSheet("color: #00E676; font-size: 12px;")
+            
+            grid.addWidget(l_name, row, 0, alignment=Qt.AlignmentFlag.AlignCenter)
+            grid.addWidget(l_dealt, row, 1, alignment=Qt.AlignmentFlag.AlignCenter)
+            grid.addWidget(l_rem, row, 2, alignment=Qt.AlignmentFlag.AlignCenter)
+            
+            self.dealt_labels.append(l_dealt)
+            self.rem_labels.append(l_rem)
+
+        layout.addLayout(grid)
+
+    def update_composition(self, shoe_counts: Tuple[int, ...], total_cards: int, decks: int) -> None:
+        if total_cards == 0:
+            return
+
+        # Calcular probabilidad de 10 (Umbral del Seguro es 33.3%)
+        tens_rem = shoe_counts[9]
+        p_10 = (tens_rem / total_cards) * 100.0
+        color_p10 = "#00E676" if p_10 >= 33.33 else "#CFD8DC"
+        self.lbl_p10.setText(f"P(10): {p_10:.1f}%")
+        self.lbl_p10.setStyleSheet(f"color: {color_p10}; font-size: 12px; font-weight: bold;")
+
+        # Excedente de Ases
+        aces_rem = shoe_counts[0]
+        expected_aces = (total_cards / 52.0) * 4.0
+        ace_surplus = aces_rem - expected_aces
+        color_ace = "#00E676" if ace_surplus > 0 else "#FF5252"
+        self.lbl_ace_surplus.setText(f"Exceso Ases: {ace_surplus:+.1f}")
+        self.lbl_ace_surplus.setStyleSheet(f"color: {color_ace}; font-size: 12px; font-weight: bold;")
+
+        # Actualizar filas de cartas (0=A, 1..8=2..9, 9=10-K)
+        initial_counts = [4 * decks] * 9 + [16 * decks]
+        
+        for i in range(10):
+            initial = initial_counts[i]
+            rem = shoe_counts[i]
+            dealt = initial - rem
+            
+            self.dealt_labels[i].setText(str(dealt))
+            self.rem_labels[i].setText(str(rem))
+
+
 class ShoeCompositionBars(QWidget):
     """Histograma compacto del residuo de cartas: Ases, Bajas (2-6), Neutras (7-9) y Dieces (10s)."""
 
@@ -287,9 +391,13 @@ class APHudWidget(QWidget):
         self.audit_widget = DecisionAuditWidget(self)
         layout.addWidget(self.audit_widget)
 
+        # Composición Detallada (Nuevo Widget)
+        self.detailed_stats = DetailedShoeStatsWidget(self)
+        layout.addWidget(self.detailed_stats)
+
         # Densidad de Residuo
-        lbl_dens = QLabel("DENSIDAD DE RESIDUO (vs ESPERADO)")
-        lbl_dens.setStyleSheet("color: #90A4AE; font-size: 15px; font-weight: bold; margin-top: 4px;")
+        lbl_dens = QLabel("DENSIDAD DE GRUPOS (vs ESPERADO)")
+        lbl_dens.setStyleSheet("color: #90A4AE; font-size: 13px; font-weight: bold; margin-top: 4px;")
         layout.addWidget(lbl_dens)
 
         self.shoe_bars = ShoeCompositionBars(self)
@@ -307,7 +415,8 @@ class APHudWidget(QWidget):
         bet_rec: BetRecommendation,
         shoe_counts: Tuple[int, ...],
         total_cards: int,
-        eval_cd: Optional[DecisionEvaluation] = None
+        eval_cd: Optional[DecisionEvaluation] = None,
+        decks: int = 6  # Añadido con default seguro para calcular las extraídas
     ) -> None:
         self.card_rc.set_value(f"{rc:+.1f}" if isinstance(rc, float) else f"{rc:+d}")
         tc_color = "#00E676" if tc > 0 else ("#FF5252" if tc < 0 else "#FFFFFF")
@@ -323,6 +432,7 @@ class APHudWidget(QWidget):
             self.card_bet.set_value(f"${bet_rec.recommended_stake:.2f}", "#00E676" if edge > 0 else "#FFFFFF")
 
         self.shoe_bars.update_composition(shoe_counts, total_cards)
+        self.detailed_stats.update_composition(shoe_counts, total_cards, decks)
 
         if eval_cd is not None:
             self.audit_widget.update_audit(eval_cd)

@@ -119,12 +119,12 @@ class DrillsView(QWidget):
         self.lbl_hilo_reference.setStyleSheet("""
             QLabel {
                 background-color: #14171F;
-                color: #CFD8DC;
+                color: #FFFFFF;
                 border: 1px solid #2B2F3A;
                 border-radius: 6px;
-                padding: 8px;
+                padding: 15px;
                 font-family: Consolas;
-                font-size: 12px;
+                font-size: 25px;
             }
         """)
 
@@ -140,7 +140,7 @@ class DrillsView(QWidget):
         self.lbl_cards_processed.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_cards_processed.setStyleSheet("""
             color: #90A4AE;
-            font-size: 16px;
+            font-size: 50px;
             font-family: Helvetica;
             font-weight: normal;
             border: none;
@@ -215,7 +215,8 @@ class DrillsView(QWidget):
             self.lbl_card_display.setText(f"{s}{c.suit}")
             color = "#D32F2F" if c.suit in "♥♦" else "#CFD8DC"
 
-        self.lbl_card_display.setStyleSheet(f"color: {color}; font-size: 64px; font-family: Helvetica; font-weight: bold;")
+        self.lbl_card_display.setStyleSheet(f"color: {color}; font-size: 300px; font-family: Helvetica; font-weight: bold;")
+
 
         # Actualizar contador de cartas procesadas
         self.lbl_cards_processed.setText(
