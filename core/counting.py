@@ -19,10 +19,10 @@ class RoundingMode(Enum):
 
 # Tablas de ponderación por carta (1..10, donde 1 es As y 10 es 10/J/Q/K)
 COUNTING_WEIGHTS: Dict[CountingSystem, Tuple[float, ...]] = {
-    #                      A,   2,   3,   4,   5,   6,   7,   8,    9,   10
-    CountingSystem.HI_LO: (-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, -1.0),
-    CountingSystem.ZEN_COUNT: (-1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 0.0, 0.0, -2.0),
-    CountingSystem.OMEGA_II: (0.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 0.0, -1.0, -2.0),
+    #                              A,   2,   3,   4,   5,   6,   7,   8,    9,    10
+    CountingSystem.HI_LO:       (-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0,  0.0, -1.0),
+    CountingSystem.ZEN_COUNT:   (-1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 0.0,  0.0, -2.0),
+    CountingSystem.OMEGA_II:    ( 0.0, 1.0, 1.0, 2.0, 2.0, 2.0, 1.0, 0.0, -1.0, -2.0),
     CountingSystem.WONG_HALVES: (-1.0, 0.5, 1.0, 1.0, 1.5, 1.0, 0.5, 0.0, -0.5, -1.0),
 }
 
@@ -44,7 +44,7 @@ class CardCounter:
 
     def __init__(
         self,
-        system: CountingSystem = CountingSystem.HI_LO,
+        system: CountingSystem = CountingSystem.WONG_HALVES,
         rounding_mode: RoundingMode = RoundingMode.FLOOR,
         deck_resolution: float = 0.5,
     ) -> None:

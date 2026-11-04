@@ -3,7 +3,8 @@ from typing import List, Optional, Tuple
 from PyQt6.QtCore import Qt, QThreadPool, QRunnable, pyqtSignal, QObject
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QStackedWidget,
-    QPushButton, QLabel, QComboBox, QCheckBox, QToolBar, QFrame
+    QPushButton, QLabel, QComboBox, QCheckBox, QToolBar, QFrame,
+    QDoubleSpinBox
 )
 
 from core.rules import TableRules
@@ -19,7 +20,7 @@ from gui.views.xai_view import XAIView
 
 
 class WorkerSignals(QObject):
-    finished = pyqtSignal(int, object, int, float, object)  # eval_id, eval_cd, tc, edge, bet_rec
+    finished = pyqtSignal(int, object, int, float, object)
     error = pyqtSignal(int, str)
 
 
@@ -68,9 +69,8 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("QUANTITATIVE AP BLACKJACK SUITE — Professional Desktop Engine")
-        self.resize(1360, 800)
+        self.resize(1400, 800)
 
-        # Core Engines
         self.rules = TableRules(decks=6, dealer_hits_soft_17=False, is_hole_card_game=True, allow_das=True)
         self.shoe = CompositionShoe.from_decks(6)
         self.counter = CardCounter(system=CountingSystem.HI_LO, rounding_mode=RoundingMode.FLOOR)
@@ -97,7 +97,7 @@ class MainWindow(QMainWindow):
                 color: #CFD8DC;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             }
-            QComboBox {
+            QComboBox, QDoubleSpinBox {
                 background-color: #14171F;
                 color: #00E676;
                 border: 1px solid #2B2F3A;
@@ -141,6 +141,13 @@ class MainWindow(QMainWindow):
         toolbar.setMovable(False)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, toolbar)
 
+        toolbar.addWidget(QLabel(" Mazos: "))
+        self.combo_decks = QComboBox()
+        self.combo_decks.addItems(["1", "2", "4", "6", "8"])
+        self.combo_decks.setCurrentText("6")
+        self.combo_decks.currentIndexChanged.connect(self._on_rule_changed)
+        toolbar.addWidget(self.combo_decks)
+
         toolbar.addWidget(QLabel(" Crupier: "))
         self.combo_dealer = QComboBox()
         self.combo_dealer.addItems(["Stand Soft 17 (S17)", "Hit Soft 17 (H17)"])
@@ -173,6 +180,25 @@ class MainWindow(QMainWindow):
         self.chk_surr.setChecked(True)
         self.chk_surr.stateChanged.connect(self._on_rule_changed)
         toolbar.addWidget(self.chk_surr)
+        
+        toolbar.addWidget(QLabel("   Capital Inicial ($): "))
+        self.spin_start_bankroll = QDoubleSpinBox()
+        self.spin_start_bankroll.setRange(100.0, 1_000_000.0)
+        self.spin_start_bankroll.setValue(10_000.0)
+        self.spin_start_bankroll.setSingleStep(1000.0)
+        toolbar.addWidget(self.spin_start_bankroll)
+
+        self.btn_reset = QPushButton("Reiniciar Sesión")
+        self.btn_reset.setStyleSheet("""
+            background-color: #FF5252; 
+            color: #0F1117; 
+            font-weight: bold; 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            margin-left: 10px;
+        """)
+        self.btn_reset.clicked.connect(self.reset_session)
+        toolbar.addWidget(self.btn_reset)
 
     def _build_ui_layout(self) -> None:
         main_widget = QWidget(self)
@@ -214,10 +240,8 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget(self)
         root_layout.addWidget(self.stack, 1)
 
-        # HUD Lateral Compartido
         self.hud = APHudWidget(self)
 
-        # 1. Vista Mesa AP / Coach
         view_table_container = QWidget()
         vt_layout = QHBoxLayout(view_table_container)
         vt_layout.setContentsMargins(0, 0, 0, 0)
@@ -235,15 +259,12 @@ class MainWindow(QMainWindow):
         vt_layout.addWidget(self.hud)
         self.stack.addWidget(view_table_container)
 
-        # 2. Vista Drills
         self.view_drills = DrillsView(self)
         self.stack.addWidget(self.view_drills)
 
-        # 3. Vista Academia
         self.view_academy = AcademyView(rules=self.rules, parent=self)
         self.stack.addWidget(self.view_academy)
 
-        # 4. Vista Árbol XAI
         self.view_xai = XAIView(rules=self.rules, parent=self)
         self.stack.addWidget(self.view_xai)
 
@@ -253,7 +274,13 @@ class MainWindow(QMainWindow):
         for i, b in enumerate(buttons):
             b.setChecked(i == index)
 
+    def reset_session(self) -> None:
+        self._bankroll = self.spin_start_bankroll.value()
+        self.table_controller.bankroll = self._bankroll
+        self.table_controller.full_reset()
+
     def _on_rule_changed(self) -> None:
+        decks = int(self.combo_decks.currentText())
         h17 = self.combo_dealer.currentIndex() == 1
         payout = 1.2 if self.combo_payout.currentIndex() == 1 else 1.5
         is_hole = self.combo_peek.currentIndex() == 0
@@ -262,7 +289,7 @@ class MainWindow(QMainWindow):
         surr = self.chk_surr.isChecked()
 
         self.rules = TableRules(
-            decks=6,
+            decks=decks,
             dealer_hits_soft_17=h17,
             blackjack_payout=payout,
             is_hole_card_game=is_hole,
@@ -273,12 +300,13 @@ class MainWindow(QMainWindow):
         self.engine = CompositionDependentEngine(self.rules)
         self.table_controller.rules = self.rules
         self.table_controller.engine = self.engine
+        
+        self.table_controller.reset_shoe_and_counter()
 
         self.view_academy.update_rules(self.rules)
         self.view_xai.update_rules(self.rules)
 
     def trigger_async_evaluation(self, player_cards: Tuple[int, ...], dealer_upcard: int) -> None:
-        """Dispara evaluación en background protegiéndose contra condiciones de carrera."""
         self._current_eval_id += 1
         eval_id = self._current_eval_id
 
@@ -302,7 +330,6 @@ class MainWindow(QMainWindow):
         edge: float,
         bet_rec: BetRecommendation
     ) -> None:
-        # Si llegó un callback viejo, descartarlo
         if eval_id < self._current_eval_id:
             return
 

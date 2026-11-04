@@ -159,3 +159,20 @@ class TestAPMetricsSuite(unittest.TestCase):
         self.assertTrue(10_000 < metrics.n_zero < 60_000)
         self.assertTrue(15.0 < metrics.score < 100.0)
         self.assertAlmostEqual(metrics.risk_of_ruin, 0.1353, places=2)
+
+    def test_07_obo_split_das_invariant(self) -> None:
+        rules_pure = TableRules(decks=1, is_hole_card_game=False, allow_obo=False)
+        rules_obo = TableRules(decks=1, is_hole_card_game=False, allow_obo=True)
+        engine_pure = CompositionDependentEngine(rules_pure)
+        engine_obo = CompositionDependentEngine(rules_obo)
+
+        counts = [0] * 10
+        counts[0] = 1
+        counts[9] = 1
+        shoe = CompositionShoe(tuple(counts))
+
+        eval_pure = engine_pure.evaluate_decision((5, 5), 10, shoe)
+        eval_obo = engine_obo.evaluate_decision((5, 5), 10, shoe)
+
+        self.assertAlmostEqual(eval_obo.ev_double - eval_pure.ev_double, 0.5, places=6)
+        self.assertAlmostEqual(eval_obo.ev_split - eval_pure.ev_split, 0.5, places=6)
