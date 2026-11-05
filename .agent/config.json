@@ -1,0 +1,41 @@
+{
+  "mode": "autonomous",
+  "max_iterations": 8,
+  "model": "gemini-3.8-flash",
+  "max_file_bytes": 250000,
+  "max_total_context_bytes": 1500000,
+  "test_commands": [
+    [
+      "{python}",
+      "-m",
+      "unittest",
+      "discover",
+      "-v"
+    ]
+  ],
+  "test_timeout_seconds": 300,
+  "allow_new_files": true,
+  "allow_existing_file_modifications": true,
+  "allow_deletions": false,
+  "excluded_directories": [
+    ".agent",
+    ".git",
+    ".hg",
+    ".idea",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".svn",
+    ".venv",
+    ".vscode",
+    "__pycache__",
+    "build",
+    "dist",
+    "env",
+    "node_modules",
+    "site-packages",
+    "vendor",
+    "venv"
+  ],
+  "notes": "Edita test_commands para definir los comandos de prueba permitidos. Cada comando debe ser una lista de argumentos."
+}
